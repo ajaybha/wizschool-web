@@ -1,12 +1,23 @@
 import React, { useEffect, useState} from 'react';
 
-const useSalesApi = (baseUrl:string, apiPath:string, params?:string) => {
+interface ISaleInfo {
+    id:string,
+    startTime:string,
+    endTime:string,
+    saleType:string,
+    mintSupply: number,
+    price: number,
+    perWalletLimit: number,
+    active:boolean,
+    collectionAddress:string
+};
 
-    const getUrl = `${baseUrl}/${apiPath}`;
+const useSalesApi = (apiPath:string, params?:string) => {
+   
     /**
      * default data is empty and loading is true
      */
-    const [data, setData] = useState([]);
+    const [data, setData] = useState<ISaleInfo[]>();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const requestOptions = {
@@ -15,6 +26,16 @@ const useSalesApi = (baseUrl:string, apiPath:string, params?:string) => {
         // body:
     };
     useEffect(()=> {
+        /**
+         * apiPath is relative, the routing is done by vit server (proxy config)
+         * '/api': {
+         *      target: 'http://localhost:3000',
+         *  }
+         * 
+         * this routes the "api/**" relative path to "http://localhost:3000/api/**"
+         * 
+         */
+        const getUrl = `${apiPath}`;
         fetch(getUrl, requestOptions)
         .then((res)=>  res.json())
         .then((data)=> { 
@@ -28,7 +49,7 @@ const useSalesApi = (baseUrl:string, apiPath:string, params?:string) => {
         .finally(() => {
             setLoading(false);
         })
-    }, [baseUrl, apiPath]);
+    }, []); // run the effect only once
 
     return {data, loading, error};
 };

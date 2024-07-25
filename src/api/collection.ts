@@ -8,7 +8,7 @@ interface ICollectionMetadata
     external_link?:string
 }
 
-const useCollectionsApi = (apiPath:string, params?:string) => {
+const useCollectionMetadataApi = (apiPath:string, params?:string) => {
 
     /**
      * default data is empty and loading is true
@@ -49,4 +49,4 @@ const useCollectionsApi = (apiPath:string, params?:string) => {
 
     return {data, isLoading, error};
 };
-export {useCollectionsApi};
+export {useCollectionMetadataApi};

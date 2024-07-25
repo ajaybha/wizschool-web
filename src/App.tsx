@@ -19,7 +19,7 @@ import { HeadingImage } from "./components/HeadingImage";
 import { PoweredBy } from "./components/PoweredBy";
 import { useToast } from "./components/ui/use-toast";
 import { parseIneligibility } from "./utils/parseIneligibility";
-import {useSalesApi, useCollectionsApi} from "./api";
+import {useSalesApi, useCollectionMetadataApi} from "./api";
 import {
   clientIdConst,
   contractConst,
@@ -27,6 +27,7 @@ import {
   primaryColorConst,
   themeConst,
 } from "./consts/parameters";
+import { NowChain } from "@thirdweb-dev/chains";
 
 const urlParams = new URL(window.location.toString()).searchParams;
 const contractAddress = urlParams.get("contract") || contractConst || "";
@@ -66,9 +67,18 @@ export default function Home() {
 
   const contractQuery = useContract(contractAddress);
   //const contractMetadata = useContractMetadata(contractQuery.contract);
-  console.log(`${apiEndpoints.singleCollection}/${contractAddress}/metadata`);
-  const contractMetadata = useCollectionsApi(`${apiEndpoints.singleCollection}/${contractAddress}/metadata`);
-  
+  /**
+   * get metadata given contract/collection -- same as contractURI endpoint returned from the smartcontract
+   */
+  const contractAddressLower = contractAddress.toLowerCase();
+  console.log(`useCollectionMetadataApi: ${apiEndpoints.singleCollection}/${contractAddress}/metadata`);
+  const contractMetadata = useCollectionMetadataApi(`${apiEndpoints.singleCollection}/${contractAddress}/metadata`);
+  /**
+   * get all the sales for given contract/collection 
+   */
+  console.log(`useSalesApi: ${apiEndpoints.sales}?collection=${contractAddress}`);
+  const allSalesInfo = useSalesApi(`${apiEndpoints.sales}?collection=${contractAddressLower}`);
+
   const { toast } = useToast();
   let theme = (urlParams.get("theme") || themeConst || "light") as
     | "light"
@@ -83,7 +93,7 @@ export default function Home() {
   root.classList.add(theme);
   const address = useAddress();
   const [quantity, setQuantity] = useState(1);
-  const claimConditions = useClaimConditions(contractQuery.contract);
+  //const claimConditions = useClaimConditions(contractQuery.contract);
   const activeClaimCondition = useActiveClaimConditionForWallet(
     contractQuery.contract,
     address,
@@ -285,26 +295,30 @@ export default function Home() {
     quantity,
   ]);
 
+  /**
+   * For all scheduled & active sales 
+   * IF 
+   * - there are no sales
+   * - there is no_active_sale | mint_supply == 0 | end_time in past
+   */
   const dropNotReady = useMemo(
-    () =>
-      claimConditions.data?.length === 0 ||
-      claimConditions.data?.every((cc) => cc.maxClaimableSupply === "0"),
-    [claimConditions.data],
-  );
+    () => 
+      allSalesInfo.data?.length === 0 ||
+      allSalesInfo.data?.every((s) => s.active == false || s.mintSupply == 0 || new Date(s.endTime) < new Date()),
+    [allSalesInfo.data]);
 
+  /**
+   * For all scheduled & active sales 
+   * IF 
+   * - there are some sales 
+   * - there is at least one sale with active_sale && mint_supply >= 0 && start_time in future
+   */
   const dropStartingSoon = useMemo(
-    () =>
-      (claimConditions.data &&
-        claimConditions.data.length > 0 &&
-        activeClaimCondition.isError) ||
-      (activeClaimCondition.data &&
-        activeClaimCondition.data.startTime > new Date()),
-    [
-      activeClaimCondition.data,
-      activeClaimCondition.isError,
-      claimConditions.data,
-    ],
-  );
+    () => 
+      (allSalesInfo.data && allSalesInfo.data.length > 0 && activeClaimCondition.isError &&
+      allSalesInfo.data?.some((s) => s.active == true && s.mintSupply > 0 && new Date(s.startTime) > new Date())) ||
+      (activeClaimCondition.data && activeClaimCondition.data.startTime > new Date()), 
+    [allSalesInfo.data, activeClaimCondition.isError, activeClaimCondition.data]);
 
   const clientId = urlParams.get("clientId") || clientIdConst || "";
   if (!clientId) {

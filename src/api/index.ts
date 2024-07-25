@@ -1,2 +1,2 @@
 export {useSalesApi} from "./sale";
-export {useCollectionsApi} from "./collection";
+export {useCollectionMetadataApi} from "./collection";
