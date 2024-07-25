@@ -301,7 +301,7 @@ export default function Home() {
    * - there are no sales
    * - there is no_active_sale | mint_supply == 0 | end_time in past
    */
-  const dropNotReady = useMemo(
+  const saleNotReady = useMemo(
     () => 
       allSalesInfo.data?.length === 0 ||
       allSalesInfo.data?.every((s) => s.active == false || s.mintSupply == 0 || new Date(s.endTime) < new Date()),
@@ -313,7 +313,7 @@ export default function Home() {
    * - there are some sales 
    * - there is at least one sale with active_sale && mint_supply >= 0 && start_time in future
    */
-  const dropStartingSoon = useMemo(
+  const saleStartingSoon = useMemo(
     () => 
       (allSalesInfo.data && allSalesInfo.data.length > 0 && activeClaimCondition.isError &&
       allSalesInfo.data?.some((s) => s.active == true && s.mintSupply > 0 && new Date(s.startTime) > new Date())) ||
@@ -421,17 +421,16 @@ export default function Home() {
             </div>
             <div className="flex w-full gap-4 lg:border lg:border-gray-400 lg:dark:border-blue-800">
               {
-              dropNotReady 
+              saleNotReady 
                 ? (
                   <span className="text-red-500">
-                    This drop is not ready to be minted yet. (No claim condition
-                    set)
+                    There is no qualified token sale planned. Stay tuned! 
                   </span>
                 ) 
-                : dropStartingSoon 
+                : saleStartingSoon 
                   ? (
                     <span className="text-gray-500">
-                      Drop is starting soon. Please check back later.
+                      Sale will be starting soon. Please check back later.
                     </span>
                   ) 
                   : (
