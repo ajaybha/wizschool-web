@@ -19,7 +19,7 @@ import { HeadingImage } from "./components/HeadingImage";
 import { PoweredBy } from "./components/PoweredBy";
 import { useToast } from "./components/ui/use-toast";
 import { parseIneligibility } from "./utils/parseIneligibility";
-import {useSalesApi, useCollectionMetadataApi} from "./api";
+import {useSalesApi, useCollectionMetadataApi, useActiveSaleApi} from "./api";
 import {
   clientIdConst,
   contractConst,
@@ -27,7 +27,6 @@ import {
   primaryColorConst,
   themeConst,
 } from "./consts/parameters";
-import { NowChain } from "@thirdweb-dev/chains";
 
 const urlParams = new URL(window.location.toString()).searchParams;
 const contractAddress = urlParams.get("contract") || contractConst || "";
@@ -78,6 +77,12 @@ export default function Home() {
    */
   console.log(`useSalesApi: ${apiEndpoints.sales}?collection=${contractAddress}`);
   const allSalesInfo = useSalesApi(`${apiEndpoints.sales}?collection=${contractAddressLower}`);
+  /**
+   * get the active sale for given contract/collection 
+   * active here means status:active, current time falling under sale window & most recent start time
+   */
+  console.log(`useSalesApi: ${apiEndpoints.sales}?collection=${contractAddress}`);
+  const activeSaleInfo = useActiveSaleApi(`${apiEndpoints.singleSale}?collection=${contractAddressLower}`);
 
   const { toast } = useToast();
   let theme = (urlParams.get("theme") || themeConst || "light") as
@@ -94,10 +99,10 @@ export default function Home() {
   const address = useAddress();
   const [quantity, setQuantity] = useState(1);
   //const claimConditions = useClaimConditions(contractQuery.contract);
-  const activeClaimCondition = useActiveClaimConditionForWallet(
-    contractQuery.contract,
-    address,
-  );
+  //const activeClaimCondition = useActiveClaimConditionForWallet(
+  //  contractQuery.contract,
+  //  address,
+  //);
   const claimerProofs = useClaimerProofs(contractQuery.contract, address || "");
   const claimIneligibilityReasons = useClaimIneligibilityReasons(
     contractQuery.contract,
@@ -124,121 +129,88 @@ export default function Home() {
   }, [claimedSupply.data, unclaimedSupply.data]);
 
   const priceToMint = useMemo(() => {
-    const bnPrice = BigNumber.from(
-      activeClaimCondition.data?.currencyMetadata.value || 0,
-    );
+    //const bnPrice = BigNumber.from(
+      //activeClaimCondition.data?.currencyMetadata.value || 0,
+    //);
+    // BigNumber is not supported in very many database systems. We are storing the 
+    // price in ether units (not gwei)
+    const bnPrice:BigNumber = utils.parseEther(activeSaleInfo.data?.price.toString() || "0");
     return `${utils.formatUnits(
       bnPrice.mul(quantity).toString(),
-      activeClaimCondition.data?.currencyMetadata.decimals || 18,
-    )} ${activeClaimCondition.data?.currencyMetadata.symbol}`;
+      activeSaleInfo.data?.currencyDecimals || 18,
+    )} ${activeSaleInfo.data?.currencySymbol}`;
   }, [
-    activeClaimCondition.data?.currencyMetadata.decimals,
-    activeClaimCondition.data?.currencyMetadata.symbol,
-    activeClaimCondition.data?.currencyMetadata.value,
+    activeSaleInfo.data?.currencyDecimals,
+    activeSaleInfo.data?.currencySymbol,
+    activeSaleInfo.data?.price,
     quantity,
   ]);
 
-  const isOpenEdition = useMemo(() => {
-    if (contractQuery?.contract) {
-      const contractWrapper = (contractQuery.contract as any).contractWrapper;
-
-      const featureDetected = detectContractFeature(
-        contractWrapper,
-        "ERC721SharedMetadata",
-      );
-
-      return featureDetected;
-    }
-    return false;
-  }, [contractQuery.contract]);
-
-  const maxClaimable = useMemo(() => {
-    let bnMaxClaimable;
+  const mintSupply = useMemo(() => {
+    let maxTokenSupply : BigNumber;
     try {
-      bnMaxClaimable = BigNumber.from(
-        activeClaimCondition.data?.maxClaimableSupply || 0,
-      );
+      // this is max token supply for the sale
+      maxTokenSupply = BigNumber.from(activeSaleInfo.data?.mintSupply || 0);
     } catch (e) {
-      bnMaxClaimable = BigNumber.from(1_000_000);
+      maxTokenSupply = BigNumber.from(1_000);
     }
-
-    let perTransactionClaimable;
+    let availableSupply : BigNumber;
     try {
-      perTransactionClaimable = BigNumber.from(
-        activeClaimCondition.data?.maxClaimablePerWallet || 0,
-      );
+      // this is total minted in the sale (by all)
+      availableSupply = maxTokenSupply.sub(activeSaleInfo.data?.mintedCount || 0);
     } catch (e) {
-      perTransactionClaimable = BigNumber.from(1_000_000);
+      availableSupply = BigNumber.from(0);
     }
-
-    if (perTransactionClaimable.lte(bnMaxClaimable)) {
-      bnMaxClaimable = perTransactionClaimable;
+    // limit per wallet
+    let perWalletMintLimit:BigNumber;
+    try {
+      perWalletMintLimit = BigNumber.from(activeSaleInfo.data?.perWalletLimit || 0);
+    } catch (e) {
+      perWalletMintLimit = BigNumber.from(10);
     }
+    // minted by User
+    /****************************************************
+     * // TODO: read this from backend
+     */    
+    let userMintedCount = BigNumber.from(perWalletMintLimit);
 
-    const snapshotClaimable = claimerProofs.data?.maxClaimable;
-
-    if (snapshotClaimable) {
-      if (snapshotClaimable === "0") {
-        // allowed unlimited for the snapshot
-        bnMaxClaimable = BigNumber.from(1_000_000);
-      } else {
-        try {
-          bnMaxClaimable = BigNumber.from(snapshotClaimable);
-        } catch (e) {
-          // fall back to default case
-        }
-      }
-    }
-
-    const maxAvailable = BigNumber.from(unclaimedSupply.data || 0);
-
-    let max;
-    if (maxAvailable.lt(bnMaxClaimable) && !isOpenEdition) {
-      max = maxAvailable;
-    } else {
-      max = bnMaxClaimable;
-    }
-
-    if (max.gte(1_000_000)) {
-      return 1_000_000;
-    }
-    return max.toNumber();
+    const maxAvailableForUser = perWalletMintLimit.sub(userMintedCount).lt(availableSupply) ? perWalletMintLimit.sub(userMintedCount) : availableSupply;
+    return maxAvailableForUser.toNumber();
   }, [
-    claimerProofs.data?.maxClaimable,
-    unclaimedSupply.data,
-    activeClaimCondition.data?.maxClaimableSupply,
-    activeClaimCondition.data?.maxClaimablePerWallet,
+    activeSaleInfo.data?.mintSupply,
+    activeSaleInfo.data?.mintedCount,
+    activeSaleInfo.data?.perWalletLimit
   ]);
 
   const isSoldOut = useMemo(() => {
     try {
+      let maxTokenSupply : BigNumber;
+      try {
+        // this is max token supply for the sale
+        maxTokenSupply = BigNumber.from(activeSaleInfo.data?.mintSupply || 0);
+      } catch (e) {
+        maxTokenSupply = BigNumber.from(1_000);
+      }
+      let availableSupply : BigNumber;
+      try {
+        // this is total minted in the sale (by all)
+        availableSupply = maxTokenSupply.sub(activeSaleInfo.data?.mintedCount || 0);
+      } catch (e) {
+        availableSupply = BigNumber.from(0);
+      }
       return (
-        (activeClaimCondition.isSuccess &&
-          BigNumber.from(activeClaimCondition.data?.availableSupply || 0).lte(
-            0,
-          )) ||
-        (numberClaimed === numberTotal && !isOpenEdition)
+        (activeSaleInfo.success && availableSupply.lte(0)) ||
+        (numberClaimed === numberTotal )
       );
     } catch (e) {
       return false;
     }
-  }, [
-    activeClaimCondition.data?.availableSupply,
-    activeClaimCondition.isSuccess,
-    numberClaimed,
-    numberTotal,
-    isOpenEdition,
-  ]);
+  }, [activeSaleInfo.data?.mintSupply,activeSaleInfo.success,activeSaleInfo.data?.mintedCount,numberClaimed,numberTotal]);
 
   const canClaim = useMemo(() => {
-    return (
-      activeClaimCondition.isSuccess &&
-      claimIneligibilityReasons.isSuccess &&
-      claimIneligibilityReasons.data?.length === 0 &&
-      !isSoldOut
-    );
+    return (activeSaleInfo.success &&  claimIneligibilityReasons.isSuccess && claimIneligibilityReasons.data?.length === 0 && !isSoldOut);
   }, [
-    activeClaimCondition.isSuccess,
+    activeSaleInfo.success,
     claimIneligibilityReasons.data?.length,
     claimIneligibilityReasons.isSuccess,
     isSoldOut,
@@ -246,13 +218,13 @@ export default function Home() {
 
   const isLoading = useMemo(() => {
     return (
-      activeClaimCondition.isLoading ||
+      activeSaleInfo.loading ||
       unclaimedSupply.isLoading ||
       claimedSupply.isLoading ||
       !contractQuery.contract
     );
   }, [
-    activeClaimCondition.isLoading,
+    activeSaleInfo.loading,
     contractQuery.contract,
     claimedSupply.isLoading,
     unclaimedSupply.isLoading,
@@ -269,9 +241,9 @@ export default function Home() {
     }
 
     if (canClaim) {
-      const pricePerToken = BigNumber.from(
-        activeClaimCondition.data?.currencyMetadata.value || 0,
-      );
+      // BigNumber is not supported in very many database systems. We are storing the 
+      // price in ether units (not gwei)
+      const pricePerToken:BigNumber = utils.parseEther(activeSaleInfo.data?.price.toString() || "0");
       if (pricePerToken.eq(0)) {
         return "Mint (Free)";
       }
@@ -290,7 +262,7 @@ export default function Home() {
     canClaim,
     claimIneligibilityReasons.data,
     buttonLoading,
-    activeClaimCondition.data?.currencyMetadata.value,
+    activeSaleInfo.data?.price,
     priceToMint,
     quantity,
   ]);
@@ -315,10 +287,10 @@ export default function Home() {
    */
   const saleStartingSoon = useMemo(
     () => 
-      (allSalesInfo.data && allSalesInfo.data.length > 0 && activeClaimCondition.isError &&
+      (allSalesInfo.data && allSalesInfo.data.length > 0 && activeSaleInfo.error &&
       allSalesInfo.data?.some((s) => s.active == true && s.mintSupply > 0 && new Date(s.startTime) > new Date())) ||
-      (activeClaimCondition.data && activeClaimCondition.data.startTime > new Date()), 
-    [allSalesInfo.data, activeClaimCondition.isError, activeClaimCondition.data]);
+      (activeSaleInfo.data && new Date(activeSaleInfo.data.startTime) > new Date()), 
+    [allSalesInfo.data, activeSaleInfo.error, activeSaleInfo.data]);
 
   const clientId = urlParams.get("clientId") || clientIdConst || "";
   if (!clientId) {
@@ -367,7 +339,7 @@ export default function Home() {
                     <div className="w-24 h-10 bg-gray-200 rounded-full dark:bg-gray-700"></div>
                   </div>
                 </div>
-                ) : isOpenEdition ? null : (
+                ) : (
                   <p>
                     <span className="text-lg font-bold tracking-wider text-gray-500 xs:text-xl lg:text-2xl">
                       {numberClaimed}
@@ -440,8 +412,8 @@ export default function Home() {
                             <button
                               onClick={() => {
                                 const value = quantity - 1;
-                                if (value > maxClaimable) {
-                                  setQuantity(maxClaimable);
+                                if (value > mintSupply) {
+                                  setQuantity(mintSupply);
                                 } else if (value < 1) {
                                   setQuantity(1);
                                 } else {
@@ -459,8 +431,8 @@ export default function Home() {
                             <button
                               onClick={() => {
                                 const value = quantity + 1;
-                                if (value > maxClaimable) {
-                                  setQuantity(maxClaimable);
+                                if (value > mintSupply) {
+                                  setQuantity(mintSupply);
                                 } else if (value < 1) {
                                   setQuantity(1);
                                 } else {
@@ -470,7 +442,7 @@ export default function Home() {
                               className={
                                 "flex h-full items-center justify-center rounded-r-md px-2 text-center text-2xl disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
                               }
-                              disabled={isSoldOut || quantity + 1 > maxClaimable}
+                              disabled={isSoldOut || quantity + 1 > mintSupply}
                             >
                               +
                             </button>
