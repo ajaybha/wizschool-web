@@ -2376,7 +2376,7 @@
     uuid "^9.0.1"
     zod "^3.22.4"
 
-"@thirdweb-dev/chains@0.1.120", "@thirdweb-dev/chains@^0.1":
+"@thirdweb-dev/chains@0.1.120", "@thirdweb-dev/chains@^0.1.120":
   version "0.1.120"
   resolved "https://registry.yarnpkg.com/@thirdweb-dev/chains/-/chains-0.1.120.tgz#bf5a1e16eb5ef9bf57c54c544f0c6cfa8844ef54"
   integrity sha512-6wj8eIylLk8wSyTUeN70LD72yN+QIwyynDfKtVGJXTcrEN2K+vuqnRE20gvA2ayX7KMyDyy76JxPlyv6SZyLGw==

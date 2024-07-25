@@ -2,9 +2,11 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ThirdwebProvider } from "@thirdweb-dev/react";
+import {ImmutableZkevmTestnet} from "@thirdweb-dev/chains";
 import "./styles/globals.css";
 import { Toaster } from "./components/ui/Toaster";
 import { getGasless } from "./utils/getGasless";
+
 import {
   biconomyApiIdConst,
   biconomyApiKeyConst,
@@ -24,13 +26,13 @@ const biconomyApiId =
   urlParams.get("biconomyApiId") || biconomyApiIdConst || "";
 const sdkOptions = getGasless(relayerUrl, biconomyApiKey, biconomyApiId);
 
-const chain = (urlParams.get("chain") && urlParams.get("chain")?.startsWith("{")) ? JSON.parse(String(urlParams.get("chain"))) : urlParams.get("chain") || chainConst;
+//const chain = (urlParams.get("chain") && urlParams.get("chain")?.startsWith("{")) ? JSON.parse(String(urlParams.get("chain"))) : urlParams.get("chain") || chainConst;
 
 const clientId = urlParams.get("clientId") || clientIdConst || "";
 
 root.render(
   <React.StrictMode>
-    <ThirdwebProvider activeChain={chain} sdkOptions={sdkOptions} clientId={clientId}>
+    <ThirdwebProvider activeChain={ImmutableZkevmTestnet} sdkOptions={sdkOptions} clientId={clientId}>
       <Toaster />
       <App />
     </ThirdwebProvider>

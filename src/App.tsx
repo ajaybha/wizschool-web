@@ -353,18 +353,17 @@ export default function Home() {
                     <span className="sr-only">Loading...</span>
                   </div>
                 ) : (
-                  //contractMetadata.data?.name
-                  <span>Magical Broom for Wizschool</span>
+                  contractMetadata.data?.name
+                  //<span>Magical Broom for Wizschool</span>
                 )}
               </h1>
               {
-                //contractMetadata.data?.description ||
-                //contractMetadata.isLoading ? (
+                contractMetadata.data?.description ||
+                contractMetadata.isLoading ? (
                 
                   <div className="text-gray-500 line-clamp-2">
                   {
-                  //contractMetadata.isLoading ? (
-                  isLoading ? (
+                  contractMetadata.isLoading ? (
                     <div
                       role="status"
                         className="space-y-8 animate-pulse md:flex md:items-center md:space-x-8 md:space-y-0"
@@ -376,11 +375,11 @@ export default function Home() {
                       <span className="sr-only">Loading...</span>
                     </div>
                   ) : (
-                    //contractMetadata.data?.description
-                    <span>A magical brooms collection for the high flyers, players, explorers, scientists and other Wizards of the Wizschool and this text goes on and on and on and on and on and ond</span>
+                    contractMetadata.data?.description
+                    //<span>A magical brooms collection for the high flyers, players, explorers, scientists and other Wizards of the Wizschool and this text goes on and on and on and on and on and ond</span>
                   )}
                 </div>
-                //) : null
+                ) : null
               }
             </div>
             <div className="flex w-full gap-4 lg:border lg:border-gray-400 lg:dark:border-blue-800">
