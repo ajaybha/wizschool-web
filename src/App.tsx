@@ -19,9 +19,11 @@ import { HeadingImage } from "./components/HeadingImage";
 import { PoweredBy } from "./components/PoweredBy";
 import { useToast } from "./components/ui/use-toast";
 import { parseIneligibility } from "./utils/parseIneligibility";
+import {useSalesApi, useCollectionsApi} from "./api";
 import {
   clientIdConst,
   contractConst,
+  wizschoolApiBaseUrl,
   primaryColorConst,
   themeConst,
 } from "./consts/parameters";
@@ -43,9 +45,30 @@ const colors = {
   yellow: "#FBBF24",
 } as const;
 
+const apiEndpoints = {
+
+  assets: "api/assets",
+  singleAsset: "api/asset",
+
+  collections: "api/collections",
+  singleCollection: "api/collection",
+
+  sales: "api/sales",
+  singleSale: "api/sale",
+
+  users: "api/users",
+  singleUser: "api/user",
+
+};
+
 export default function Home() {
+  console.log("Inside App Home()");
+
   const contractQuery = useContract(contractAddress);
-  const contractMetadata = useContractMetadata(contractQuery.contract);
+  //const contractMetadata = useContractMetadata(contractQuery.contract);
+  console.log(`${apiEndpoints.singleCollection}/${contractAddress}/metadata`);
+  const contractMetadata = useCollectionsApi(`${apiEndpoints.singleCollection}/${contractAddress}/metadata`);
+  
   const { toast } = useToast();
   let theme = (urlParams.get("theme") || themeConst || "light") as
     | "light"

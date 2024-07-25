@@ -14,6 +14,9 @@ export const chainConst = "mumbai";
 // Learn more here: https://blog.thirdweb.com/changelog/api-keys-to-access-thirdweb-infra
 export const clientIdConst = import.meta.env.VITE_THIRDWEB_CLIENT_ID || "";
 
+// BaseURL for the backend API
+export const wizschoolApiBaseUrl = import.meta.env.VITE_WIZSCHOOL_API_BASEURL || "";
+
 // Configure the primary color for buttons and other UI elements
 export const primaryColorConst = "blue";
 
