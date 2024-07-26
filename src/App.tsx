@@ -2,7 +2,6 @@ import {
   ConnectWallet,
   useAddress,
   useContract,
-  useNFT,
   Web3Button,
 } from "@thirdweb-dev/react";
 import { BigNumber, ethers, utils } from "ethers";
@@ -110,12 +109,6 @@ export default function Home() {
   console.log(`useActiveUserApi: ${activeUserApiPath}`);
   const activeUserInfo = useActiveUserApi(`${activeUserApiPath}`);  
 
-
-  const { data: firstNft, isLoading: firstNftLoading } = useNFT(
-    contractQuery.contract,
-    0,
-  );
-
   /**
    * calculate princeToMint
    */
@@ -155,6 +148,17 @@ export default function Home() {
     return BigNumber.from(activeUserInfo.data?.assets.length || 0).toNumber();
   }, [activeUserInfo.data?.assets]);
 
+  /**
+   * get first nft metadata
+   */
+  const firstNft  = useMemo(()=>{
+    let nftCount = activeUserInfo.data?.assets.length || 0;
+    if(nftCount > 0) {
+      return activeUserInfo.data?.assets[0];
+    }
+    return undefined;
+  }, [activeUserInfo.data?.assets]);
+  
   /**
    * available supply to mint for user
    */
@@ -292,7 +296,7 @@ export default function Home() {
       <div className="grid h-screen grid-cols-1 lg:grid-cols-12 lg:border lg:border-gray-400 lg:dark:border-red-800">
         <div className="items-center justify-center hidden w-full h-full lg:col-span-5 lg:flex lg:px-12 lg:border lg:border-gray-400 lg:dark:border-yellow-800">
           <HeadingImage
-            src={contractMetadata.data?.image || firstNft?.metadata.image || "src/immutable-logo.svg"}
+            src={ firstNft?.image ||contractMetadata.data?.image ||"src/immutable-logo.svg"}
             isLoading={isLoading}
           />
         </div>
@@ -300,7 +304,7 @@ export default function Home() {
           <div className="flex flex-col w-full max-w-xl gap-4 p-12 rounded-xl lg:border lg:border-gray-400 lg:dark:border-yellow-800">
             <div className="flex w-full mt-8 xs:mb-8 xs:mt-0 lg:hidden">
               <HeadingImage
-                src={contractMetadata.data?.image || firstNft?.metadata.image || "src/logo.svg"}
+                src={ firstNft?.image || contractMetadata.data?.image ||"src/logo.svg"}
                 isLoading={isLoading}
               />
             </div>
