@@ -1,18 +1,12 @@
 import {
   ConnectWallet,
-  detectContractFeature,
-  useActiveClaimConditionForWallet,
   useAddress,
-  useClaimConditions,
-  useClaimedNFTSupply,
   useContract,
-  useContractMetadata,
   useNFT,
-  useUnclaimedNFTSupply,
   Web3Button,
 } from "@thirdweb-dev/react";
-import { BigNumber, utils } from "ethers";
-import { useMemo, useState } from "react";
+import { BigNumber, ethers, utils } from "ethers";
+import { act, useMemo, useState } from "react";
 import { HeadingImage } from "./components/HeadingImage";
 import { PoweredBy } from "./components/PoweredBy";
 import { useToast } from "./components/ui/use-toast";
@@ -112,26 +106,15 @@ export default function Home() {
    * get the active user for selected wallet 
    * active here means status:active, current time falling under sale window & most recent start time
    */
-  const activeUserApiPath = `${apiEndpoints.singleUser}?address=${walletAddress}/assets`;
+  const activeUserApiPath = `${apiEndpoints.singleUser}/${walletAddress?.toLowerCase()}/assets/?collection=${contractAddressLower}`;
   console.log(`useActiveUserApi: ${activeUserApiPath}`);
   const activeUserInfo = useActiveUserApi(`${activeUserApiPath}`);  
 
-  const unclaimedSupply = useUnclaimedNFTSupply(contractQuery.contract);
-  const claimedSupply = useClaimedNFTSupply(contractQuery.contract);
+
   const { data: firstNft, isLoading: firstNftLoading } = useNFT(
     contractQuery.contract,
     0,
   );
-
-  const numberClaimed = useMemo(() => {
-    return BigNumber.from(claimedSupply.data || 0).toString();
-  }, [claimedSupply]);
-
-  const numberTotal = useMemo(() => {
-    return BigNumber.from(claimedSupply.data || 0)
-      .add(BigNumber.from(unclaimedSupply.data || 0))
-      .toString();
-  }, [claimedSupply.data, unclaimedSupply.data]);
 
   /**
    * calculate princeToMint
@@ -155,91 +138,78 @@ export default function Home() {
   ]);
 
   /**
-   * available supply to mint
+   * total available supply to mint (during this sale)
    */
-  const mintSupply = useMemo(() => {
-    let maxTokenSupply : BigNumber;
-    try {
-      // this is max token supply for the sale
-      maxTokenSupply = BigNumber.from(activeSaleInfo.data?.mintSupply || 0);
-    } catch (e) {
-      maxTokenSupply = BigNumber.from(1_000);
-    }
-    let availableSupply : BigNumber;
-    try {
-      // this is total minted in the sale (by all)
-      availableSupply = maxTokenSupply.sub(activeSaleInfo.data?.mintedCount || 0);
-    } catch (e) {
-      availableSupply = BigNumber.from(0);
-    }
-    // limit per wallet
-    let perWalletMintLimit:BigNumber;
-    try {
-      perWalletMintLimit = BigNumber.from(activeSaleInfo.data?.perWalletLimit || 0);
-    } catch (e) {
-      perWalletMintLimit = BigNumber.from(10);
-    }
-    // minted by User
-    /****************************************************
-     * // TODO: read this from backend
-     */    
-    let userMintedCount = BigNumber.from(perWalletMintLimit);
+  const availableToMint: number = useMemo(() =>{
+    let totalAvailable: BigNumber;
+    // total mint supply - already-minted
+    totalAvailable = BigNumber.from(activeSaleInfo.data?.mintSupply || 0).sub(activeSaleInfo.data?.mintedCount || 0);
+    totalAvailable =  totalAvailable.lte(ethers.constants.Zero) ? ethers.constants.Zero: totalAvailable;
+    return totalAvailable.toNumber();
+  },[activeSaleInfo.data?.mintSupply, activeSaleInfo.data?.mintedCount]);
 
-    const maxAvailableForUser = perWalletMintLimit.sub(userMintedCount).lt(availableSupply) ? perWalletMintLimit.sub(userMintedCount) : availableSupply;
-    return maxAvailableForUser.toNumber();
-  }, [
-    activeSaleInfo.data?.mintSupply,
-    activeSaleInfo.data?.mintedCount,
-    activeSaleInfo.data?.perWalletLimit
-  ]);
+  /**
+   * tokens minted by user 
+   */
+  const userMintedCount: number = useMemo(() => {
+    return BigNumber.from(activeUserInfo.data?.assets.length || 0).toNumber();
+  }, [activeUserInfo.data?.assets]);
+
+  /**
+   * available supply to mint for user
+   */
+  const availToMintByUser = useMemo(() => {
+    let availableToMintByUser : BigNumber;   
+    availableToMintByUser = BigNumber.from(activeSaleInfo.data?.perWalletLimit || 0).sub(userMintedCount);
+    // check against total available supply for the sale
+    if(availableToMintByUser.lte(availableToMint)) {
+      availableToMintByUser = availableToMintByUser.lt(ethers.constants.Zero) ? ethers.constants.Zero : availableToMintByUser;      
+    }
+    else {
+      availableToMintByUser = BigNumber.from(availableToMint);
+    }
+    return availableToMintByUser.toNumber();
+  }, [availableToMint, userMintedCount, activeSaleInfo.data?.perWalletLimit]);
 
   /**
    * soldout condition
    */
   const isSoldOut = useMemo(() => {
     try {
-      let maxTokenSupply : BigNumber;
-      try {
-        // this is max token supply for the sale
-        maxTokenSupply = BigNumber.from(activeSaleInfo.data?.mintSupply || 0);
-      } catch (e) {
-        maxTokenSupply = BigNumber.from(1_000);
-      }
-      let availableSupply : BigNumber;
-      try {
-        // this is total minted in the sale (by all)
-        availableSupply = maxTokenSupply.sub(activeSaleInfo.data?.mintedCount || 0);
-      } catch (e) {
-        availableSupply = BigNumber.from(0);
-      }
       return (
-        (activeSaleInfo.success && availableSupply.lte(0)) || (numberClaimed === numberTotal )
+        (activeSaleInfo.success && availableToMint <= 0)
       );
     } catch (e) {
       return false;
     }
-  }, [activeSaleInfo.data?.mintSupply,activeSaleInfo.success,activeSaleInfo.data?.mintedCount,numberClaimed,numberTotal]);
+  }, [activeSaleInfo.data?.mintSupply,activeSaleInfo.success,activeSaleInfo.data?.mintedCount]);//,numberClaimed,numberTotal]);
 
   const canClaim = useMemo(() => { 
     return (activeSaleInfo.success && !isSoldOut);
   }, [activeSaleInfo.success, isSoldOut]);
 
+  /**********************************************************
+   * Rendering logic starts from here
+   * ***********************************************************/
+  // how many current wallet user has minted
+  const numberMintedStr = useMemo(() => {
+    return userMintedCount.toString();
+  }, [userMintedCount]);
+
+  // how many are available (for the sale)
+  const numberTotalStr = useMemo(() => {
+    return availableToMint.toString();
+  }, [availableToMint]);
   /**
    * isLoading hook to check loading conditions
    */
   const isLoading = useMemo(() => {
     return (
       activeSaleInfo.loading ||
-      unclaimedSupply.isLoading ||
-      claimedSupply.isLoading ||
+      activeUserInfo.loading ||
       !contractQuery.contract
     );
-  }, [
-    activeSaleInfo.loading,
-    contractQuery.contract,
-    claimedSupply.isLoading,
-    unclaimedSupply.isLoading,
-  ]);
+  }, [activeSaleInfo.loading, activeUserInfo.loading, contractQuery.contract,]);
 
   /**
    * Button Loading condition
@@ -349,10 +319,10 @@ export default function Home() {
                 ) : (
                   <p>
                     <span className="text-lg font-bold tracking-wider text-gray-500 xs:text-xl lg:text-2xl">
-                      {numberClaimed}
+                      {numberMintedStr}
                     </span>{" "}
                     <span className="text-lg font-bold tracking-wider xs:text-xl lg:text-2xl">
-                      / {numberTotal} minted
+                      / {numberTotalStr} minted
                     </span>
                   </p>
                 )
@@ -419,8 +389,8 @@ export default function Home() {
                             <button
                               onClick={() => {
                                 const value = quantity - 1;
-                                if (value > mintSupply) {
-                                  setQuantity(mintSupply);
+                                if (value > availToMintByUser) {
+                                  setQuantity(availToMintByUser);
                                 } else if (value < 1) {
                                   setQuantity(1);
                                 } else {
@@ -438,8 +408,8 @@ export default function Home() {
                             <button
                               onClick={() => {
                                 const value = quantity + 1;
-                                if (value > mintSupply) {
-                                  setQuantity(mintSupply);
+                                if (value > availToMintByUser) {
+                                  setQuantity(availToMintByUser);
                                 } else if (value < 1) {
                                   setQuantity(1);
                                 } else {
@@ -449,7 +419,7 @@ export default function Home() {
                               className={
                                 "flex h-full items-center justify-center rounded-r-md px-2 text-center text-2xl disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
                               }
-                              disabled={isSoldOut || quantity + 1 > mintSupply}
+                              disabled={isSoldOut || quantity + 1 > availToMintByUser}
                             >
                               +
                             </button>

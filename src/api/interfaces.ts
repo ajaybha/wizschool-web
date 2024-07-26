@@ -43,6 +43,6 @@ export interface ISaleInfo {
 };
 
 export interface IUserWithAssetsInfo extends IUserInfo  {
-    assets : IAssetInfo
+    assets : IAssetInfo[],
 };
 

@@ -38,7 +38,7 @@ const useCollectionMetadataApi = (apiPath:string, params?:string) => {
         .finally(() => {
             setLoading(false);
         });
-    }, []); // run the effect only once
+    }, [apiPath]); // run when apiPath changes
 
     return {data, isLoading, error};
 };

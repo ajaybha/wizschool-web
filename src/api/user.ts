@@ -41,7 +41,7 @@ const useActiveUserApi = (apiPath:string, params?:string) => {
         .finally(() => {
             setLoading(false);
         })
-    }, []); // run the effect only once
+    }, [apiPath]); // run the effect if path changes
 
     return {data, loading, success, error};
 };

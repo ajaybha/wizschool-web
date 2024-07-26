@@ -81,7 +81,7 @@ const useActiveSaleApi = (apiPath:string, params?:string) => {
         .finally(() => {
             setLoading(false);
         })
-    }, []); // run the effect only once
+    }, [apiPath]); // run when apipath changes
 
     return {data, loading, success, error};
 };
