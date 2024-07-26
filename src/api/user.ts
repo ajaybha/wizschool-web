@@ -1,14 +1,16 @@
 import React, { useEffect, useState} from 'react';
-import {ICollectionMetadata} from './interfaces';
+import {IUserWithAssetsInfo} from './interfaces';
 
-const useCollectionMetadataApi = (apiPath:string, params?:string) => {
 
+const useActiveUserApi = (apiPath:string, params?:string) => {
+   
     /**
      * default data is empty and loading is true
      */
-    const [data, setData] = useState<ICollectionMetadata>();
-    const [isLoading, setLoading] = useState(true);
+    const [data, setData] = useState<IUserWithAssetsInfo>();
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(false);
     const requestOptions = {
         method: 'GET', // POST, UPDATE, DELETE
         headers: {'Content-Type': 'application/json'}
@@ -26,20 +28,21 @@ const useCollectionMetadataApi = (apiPath:string, params?:string) => {
          */
         const getUrl = `${apiPath}`;
         fetch(getUrl, requestOptions)
-        .then((res)=> res.json())
+        .then((res)=>  res.json())
         .then((data)=> { 
             setData(data);
             setLoading(false);
+            setSuccess(true);
         })
         .catch((error) => {
-            console.error(`Error fetching from ${apiPath}:${error}`);
+            console.error(`Error fetching from ${getUrl}:${error}`);
             setError(error);
         })
         .finally(() => {
             setLoading(false);
-        });
+        })
     }, []); // run the effect only once
 
-    return {data, isLoading, error};
+    return {data, loading, success, error};
 };
-export {useCollectionMetadataApi};
+export { useActiveUserApi};

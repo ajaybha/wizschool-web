@@ -5,8 +5,6 @@ import {
   useAddress,
   useClaimConditions,
   useClaimedNFTSupply,
-  useClaimerProofs,
-  useClaimIneligibilityReasons,
   useContract,
   useContractMetadata,
   useNFT,
@@ -18,8 +16,16 @@ import { useMemo, useState } from "react";
 import { HeadingImage } from "./components/HeadingImage";
 import { PoweredBy } from "./components/PoweredBy";
 import { useToast } from "./components/ui/use-toast";
-import { parseIneligibility } from "./utils/parseIneligibility";
-import {useSalesApi, useCollectionMetadataApi, useActiveSaleApi} from "./api";
+/** 
+ * api hooks for integrating with backend
+ */
+import {
+  useSalesApi, 
+  useCollectionMetadataApi, 
+  useActiveSaleApi,
+  useActiveUserApi
+} from "./api";
+
 import {
   clientIdConst,
   contractConst,
@@ -64,26 +70,6 @@ const apiEndpoints = {
 export default function Home() {
   console.log("Inside App Home()");
 
-  const contractQuery = useContract(contractAddress);
-  //const contractMetadata = useContractMetadata(contractQuery.contract);
-  /**
-   * get metadata given contract/collection -- same as contractURI endpoint returned from the smartcontract
-   */
-  const contractAddressLower = contractAddress.toLowerCase();
-  console.log(`useCollectionMetadataApi: ${apiEndpoints.singleCollection}/${contractAddress}/metadata`);
-  const contractMetadata = useCollectionMetadataApi(`${apiEndpoints.singleCollection}/${contractAddress}/metadata`);
-  /**
-   * get all the sales for given contract/collection 
-   */
-  console.log(`useSalesApi: ${apiEndpoints.sales}?collection=${contractAddress}`);
-  const allSalesInfo = useSalesApi(`${apiEndpoints.sales}?collection=${contractAddressLower}`);
-  /**
-   * get the active sale for given contract/collection 
-   * active here means status:active, current time falling under sale window & most recent start time
-   */
-  console.log(`useSalesApi: ${apiEndpoints.sales}?collection=${contractAddress}`);
-  const activeSaleInfo = useActiveSaleApi(`${apiEndpoints.singleSale}?collection=${contractAddressLower}`);
-
   const { toast } = useToast();
   let theme = (urlParams.get("theme") || themeConst || "light") as
     | "light"
@@ -96,21 +82,40 @@ export default function Home() {
   }
   const root = window.document.documentElement;
   root.classList.add(theme);
-  const address = useAddress();
+
+  const contractAddressLower = contractAddress.toLowerCase();
+  const contractQuery = useContract(contractAddress);
+  
+  /**
+   * get metadata given contract/collection -- same as contractURI endpoint returned from the smartcontract
+   */
+  
+  console.log(`useCollectionMetadataApi: ${apiEndpoints.singleCollection}/${contractAddressLower}/metadata`);
+  const contractMetadata = useCollectionMetadataApi(`${apiEndpoints.singleCollection}/${contractAddressLower}/metadata`);
+  /**
+   * get all the sales for given contract/collection 
+   */
+  console.log(`useSalesApi: ${apiEndpoints.sales}?collection=${contractAddressLower}`);
+  const allSalesInfo = useSalesApi(`${apiEndpoints.sales}?collection=${contractAddressLower}`);
+  /**
+   * get the active sale for given contract/collection 
+   * active here means status:active, current time falling under sale window & most recent start time
+   */
+  console.log(`useSalesApi: ${apiEndpoints.singleSale}?collection=${contractAddress}`);
+  const activeSaleInfo = useActiveSaleApi(`${apiEndpoints.singleSale}?collection=${contractAddressLower}`);
+
+  
+  const walletAddress = useAddress();
   const [quantity, setQuantity] = useState(1);
-  //const claimConditions = useClaimConditions(contractQuery.contract);
-  //const activeClaimCondition = useActiveClaimConditionForWallet(
-  //  contractQuery.contract,
-  //  address,
-  //);
-  const claimerProofs = useClaimerProofs(contractQuery.contract, address || "");
-  const claimIneligibilityReasons = useClaimIneligibilityReasons(
-    contractQuery.contract,
-    {
-      quantity,
-      walletAddress: address || "",
-    },
-  );
+
+  /**
+   * get the active user for selected wallet 
+   * active here means status:active, current time falling under sale window & most recent start time
+   */
+  const activeUserApiPath = `${apiEndpoints.singleUser}?address=${walletAddress}/assets`;
+  console.log(`useActiveUserApi: ${activeUserApiPath}`);
+  const activeUserInfo = useActiveUserApi(`${activeUserApiPath}`);  
+
   const unclaimedSupply = useUnclaimedNFTSupply(contractQuery.contract);
   const claimedSupply = useClaimedNFTSupply(contractQuery.contract);
   const { data: firstNft, isLoading: firstNftLoading } = useNFT(
@@ -128,6 +133,9 @@ export default function Home() {
       .toString();
   }, [claimedSupply.data, unclaimedSupply.data]);
 
+  /**
+   * calculate princeToMint
+   */
   const priceToMint = useMemo(() => {
     //const bnPrice = BigNumber.from(
       //activeClaimCondition.data?.currencyMetadata.value || 0,
@@ -146,6 +154,9 @@ export default function Home() {
     quantity,
   ]);
 
+  /**
+   * available supply to mint
+   */
   const mintSupply = useMemo(() => {
     let maxTokenSupply : BigNumber;
     try {
@@ -182,6 +193,9 @@ export default function Home() {
     activeSaleInfo.data?.perWalletLimit
   ]);
 
+  /**
+   * soldout condition
+   */
   const isSoldOut = useMemo(() => {
     try {
       let maxTokenSupply : BigNumber;
@@ -199,23 +213,20 @@ export default function Home() {
         availableSupply = BigNumber.from(0);
       }
       return (
-        (activeSaleInfo.success && availableSupply.lte(0)) ||
-        (numberClaimed === numberTotal )
+        (activeSaleInfo.success && availableSupply.lte(0)) || (numberClaimed === numberTotal )
       );
     } catch (e) {
       return false;
     }
   }, [activeSaleInfo.data?.mintSupply,activeSaleInfo.success,activeSaleInfo.data?.mintedCount,numberClaimed,numberTotal]);
 
-  const canClaim = useMemo(() => {
-    return (activeSaleInfo.success &&  claimIneligibilityReasons.isSuccess && claimIneligibilityReasons.data?.length === 0 && !isSoldOut);
-  }, [
-    activeSaleInfo.success,
-    claimIneligibilityReasons.data?.length,
-    claimIneligibilityReasons.isSuccess,
-    isSoldOut,
-  ]);
+  const canClaim = useMemo(() => { 
+    return (activeSaleInfo.success && !isSoldOut);
+  }, [activeSaleInfo.success, isSoldOut]);
 
+  /**
+   * isLoading hook to check loading conditions
+   */
   const isLoading = useMemo(() => {
     return (
       activeSaleInfo.loading ||
@@ -230,16 +241,18 @@ export default function Home() {
     unclaimedSupply.isLoading,
   ]);
 
-  const buttonLoading = useMemo(
-    () => isLoading || claimIneligibilityReasons.isLoading,
-    [claimIneligibilityReasons.isLoading, isLoading],
-  );
+  /**
+   * Button Loading condition
+   */
+  const buttonLoading = useMemo(() => isLoading,[isLoading],);
 
+  /**
+   * what to show in mintbutton
+   */
   const buttonText = useMemo(() => {
     if (isSoldOut) {
       return "Sold Out";
     }
-
     if (canClaim) {
       // BigNumber is not supported in very many database systems. We are storing the 
       // price in ether units (not gwei)
@@ -248,24 +261,12 @@ export default function Home() {
         return "Mint (Free)";
       }
       return `Mint (${priceToMint})`;
-    }
-    if (claimIneligibilityReasons.data?.length) {
-      return parseIneligibility(claimIneligibilityReasons.data, quantity);
-    }
+    }    
     if (buttonLoading) {
-      return "Checking eligibility...";
+      return "Checking...";
     }
-
     return "Minting not available";
-  }, [
-    isSoldOut,
-    canClaim,
-    claimIneligibilityReasons.data,
-    buttonLoading,
-    activeSaleInfo.data?.price,
-    priceToMint,
-    quantity,
-  ]);
+  }, [isSoldOut,canClaim, buttonLoading,activeSaleInfo.data?.price,priceToMint,quantity,]);
 
   /**
    * For all scheduled & active sales 
@@ -292,6 +293,9 @@ export default function Home() {
       (activeSaleInfo.data && new Date(activeSaleInfo.data.startTime) > new Date()), 
     [allSalesInfo.data, activeSaleInfo.error, activeSaleInfo.data]);
 
+  /**
+   * check clientID and show message
+   */
   const clientId = urlParams.get("clientId") || clientIdConst || "";
   if (!clientId) {
     return (
@@ -301,6 +305,9 @@ export default function Home() {
     );
   }
 
+  /**
+   * check contract address and show message
+   */
   if (!contractAddress) {
     return (
       <div className="flex items-center justify-center h-full">

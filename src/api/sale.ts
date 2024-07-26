@@ -1,19 +1,5 @@
 import React, { useEffect, useState} from 'react';
-
-interface ISaleInfo {
-    id:string,
-    startTime:string,
-    endTime:string,
-    saleType:string,
-    mintSupply: number,
-    price: number,
-    currencySymbol:string,
-    currencyDecimals:number,    
-    perWalletLimit: number,
-    mintedCount: number,
-    active:boolean,
-    collectionAddress:string
-};
+import { ISaleInfo} from './interfaces'
 
 const useSalesApi = (apiPath:string, params?:string) => {
    
