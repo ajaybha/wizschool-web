@@ -5,7 +5,7 @@ import {
   Web3Button,
 } from "@thirdweb-dev/react";
 import { BigNumber, ethers, utils } from "ethers";
-import { act, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { HeadingImage } from "./components/HeadingImage";
 import { PoweredBy } from "./components/PoweredBy";
 import { useToast } from "./components/ui/use-toast";
@@ -19,16 +19,21 @@ import {
   useActiveUserApi
 } from "./api";
 
-import {
+import { 
   clientIdConst,
-  contractConst,
   wizschoolApiBaseUrl,
   primaryColorConst,
   themeConst,
 } from "./consts/parameters";
 
+import {
+  collectionContractConst,
+  saleMinterContractConst
+} from "./consts/contract";
+
 const urlParams = new URL(window.location.toString()).searchParams;
-const contractAddress = urlParams.get("contract") || contractConst || "";
+const collectionContractAddr = urlParams.get("contract") || collectionContractConst || "";
+const saleMinterContractAddr = urlParams.get("salecontract") || saleMinterContractConst || "";
 const primaryColor =
   urlParams.get("primaryColor") || primaryColorConst || undefined;
 
@@ -76,8 +81,8 @@ export default function Home() {
   const root = window.document.documentElement;
   root.classList.add(theme);
 
-  const contractAddressLower = contractAddress.toLowerCase();
-  const contractQuery = useContract(contractAddress);
+  const contractAddressLower = collectionContractAddr.toLowerCase();
+  const saleContractQuery = useContract(saleMinterContractAddr);
   
   /**
    * get metadata given contract/collection -- same as contractURI endpoint returned from the smartcontract
@@ -94,7 +99,7 @@ export default function Home() {
    * get the active sale for given contract/collection 
    * active here means status:active, current time falling under sale window & most recent start time
    */
-  console.log(`useSalesApi: ${apiEndpoints.singleSale}?collection=${contractAddress}`);
+  console.log(`useSalesApi: ${apiEndpoints.singleSale}?collection=${contractAddressLower}`);
   const activeSaleInfo = useActiveSaleApi(`${apiEndpoints.singleSale}?collection=${contractAddressLower}`);
 
   
@@ -211,9 +216,9 @@ export default function Home() {
     return (
       activeSaleInfo.loading ||
       activeUserInfo.loading ||
-      !contractQuery.contract
+      !saleContractQuery.contract
     );
-  }, [activeSaleInfo.loading, activeUserInfo.loading, contractQuery.contract,]);
+  }, [activeSaleInfo.loading, activeUserInfo.loading, saleContractQuery.contract,]);
 
   /**
    * Button Loading condition
@@ -282,7 +287,7 @@ export default function Home() {
   /**
    * check contract address and show message
    */
-  if (!contractAddress) {
+  if (!saleMinterContractAddr) {
     return (
       <div className="flex items-center justify-center h-full">
         No contract address provided
@@ -430,7 +435,7 @@ export default function Home() {
                           </div>
                           <Web3Button
                             contractAddress={
-                              contractQuery.contract?.getAddress() || ""
+                              saleContractQuery.contract?.getAddress() || ""
                             }
                             style={{
                               backgroundColor:
