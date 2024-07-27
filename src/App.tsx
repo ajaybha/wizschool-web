@@ -16,7 +16,6 @@ import {
   useSalesApi, 
   useCollectionMetadataApi, 
   useActiveSaleApi,
-  useUpdateSaleInfo,
   useActiveUserApi
 } from "./api";
 
@@ -448,7 +447,7 @@ export default function Home() {
                             isDisabled={!canClaim || buttonLoading}
                             theme={theme}
                             contractAddress= {saleContractQuery.contract?.getAddress() || saleMinterContractAddr}
-                            action={(cntr) => cntr.call("mint", [9], 
+                            action={(cntr) => cntr.call("mint", [10], 
                               {
                                 value: ethers.utils.parseEther("0.03")
                               })}
@@ -471,10 +470,6 @@ export default function Home() {
                                 duration: 5000,
                                 className: "bg-green-500",
                               });
-                                /**
-                                 * update the sale info and get updated info
-                                 */
-                                //useUpdateSaleInfo(`${apiEndpoints.singleSale}/${activeSaleInfo.data?.id}`, 1); 
                             }}
                           >
                             {

@@ -22,7 +22,10 @@ root.render(
     {
     //<ThirdwebProvider activeChain={ImmutableZkevmTestnet} clientId={clientId}>
     }
-    <ThirdwebProvider activeChain="localhost" clientId={clientId} >
+    {
+      //<ThirdwebProvider activeChain="localhost" clientId={clientId} >
+    }
+    <ThirdwebProvider activeChain={ImmutableZkevmTestnet} clientId={clientId}>
       <Toaster />
       <App />
     </ThirdwebProvider>
