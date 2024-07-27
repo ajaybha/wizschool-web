@@ -45,4 +45,5 @@ const useActiveUserApi = (apiPath:string, params?:string) => {
 
     return {data, loading, success, error};
 };
+
 export { useActiveUserApi};

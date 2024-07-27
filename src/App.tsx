@@ -16,6 +16,7 @@ import {
   useSalesApi, 
   useCollectionMetadataApi, 
   useActiveSaleApi,
+  useUpdateSaleInfo,
   useActiveUserApi
 } from "./api";
 
@@ -28,7 +29,8 @@ import {
 
 import {
   collectionContractConst,
-  saleMinterContractConst
+  saleMinterContractConst,
+  saleMinterContractABI,
 } from "./consts/contract";
 
 const urlParams = new URL(window.location.toString()).searchParams;
@@ -82,7 +84,7 @@ export default function Home() {
   root.classList.add(theme);
 
   const contractAddressLower = collectionContractAddr.toLowerCase();
-  const saleContractQuery = useContract(saleMinterContractAddr);
+  const saleContractQuery = useContract(saleMinterContractAddr, saleMinterContractABI);
   
   /**
    * get metadata given contract/collection -- same as contractURI endpoint returned from the smartcontract
@@ -107,8 +109,7 @@ export default function Home() {
   const [quantity, setQuantity] = useState(1);
 
   /**
-   * get the active user for selected wallet 
-   * active here means status:active, current time falling under sale window & most recent start time
+   * get the active user and all its assets
    */
   const activeUserApiPath = `${apiEndpoints.singleUser}/${walletAddress?.toLowerCase()}/assets/?collection=${contractAddressLower}`;
   console.log(`useActiveUserApi: ${activeUserApiPath}`);
@@ -191,11 +192,11 @@ export default function Home() {
     } catch (e) {
       return false;
     }
-  }, [activeSaleInfo.data?.mintSupply,activeSaleInfo.success,activeSaleInfo.data?.mintedCount]);//,numberClaimed,numberTotal]);
+  }, [availableToMint,activeSaleInfo.success]);//,numberClaimed,numberTotal]);
 
   const canClaim = useMemo(() => { 
-    return (activeSaleInfo.success && !isSoldOut);
-  }, [activeSaleInfo.success, isSoldOut]);
+    return (activeSaleInfo.success && !isSoldOut && availToMintByUser > 0);
+  }, [activeSaleInfo.success, isSoldOut, availToMintByUser]);
 
   /**********************************************************
    * Rendering logic starts from here
@@ -244,8 +245,12 @@ export default function Home() {
     if (buttonLoading) {
       return "Checking...";
     }
+    if (!canClaim && availToMintByUser === 0)
+    {
+      return "Wallet limit reached"
+    }
     return "Minting not available";
-  }, [isSoldOut,canClaim, buttonLoading,activeSaleInfo.data?.price,priceToMint,quantity,]);
+  }, [isSoldOut,canClaim, buttonLoading,activeSaleInfo.data?.price,priceToMint,availToMintByUser,]);
 
   /**
    * For all scheduled & active sales 
@@ -434,18 +439,20 @@ export default function Home() {
                             </button>
                           </div>
                           <Web3Button
-                            contractAddress={
-                              saleContractQuery.contract?.getAddress() || ""
-                            }
                             style={{
                               backgroundColor:
                                 colors[primaryColor as keyof typeof colors] ||
                                 primaryColor,
                               maxHeight: "43px",
-                            }}
-                            theme={theme}
-                            action={(cntr) => cntr.erc721.claim(quantity)}
+                            }}                            
                             isDisabled={!canClaim || buttonLoading}
+                            theme={theme}
+                            contractAddress= {saleContractQuery.contract?.getAddress() || saleMinterContractAddr}
+                            action={(cntr) => cntr.call("mint", [9], 
+                              {
+                                value: ethers.utils.parseEther("0.03")
+                              })}
+                            contractAbi={saleMinterContractABI}
                             onError={(err) => {
                               console.error(err);
                               console.log({ err });
@@ -464,6 +471,10 @@ export default function Home() {
                                 duration: 5000,
                                 className: "bg-green-500",
                               });
+                                /**
+                                 * update the sale info and get updated info
+                                 */
+                                //useUpdateSaleInfo(`${apiEndpoints.singleSale}/${activeSaleInfo.data?.id}`, 1); 
                             }}
                           >
                             {

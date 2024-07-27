@@ -27,6 +27,7 @@ export interface IAssetInfo {
     external_url: string,
     attributes: IAttributeMetadata[],
 }
+
 export interface ISaleInfo {
     id:string,
     startTime:string,

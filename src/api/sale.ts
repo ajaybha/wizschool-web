@@ -85,4 +85,47 @@ const useActiveSaleApi = (apiPath:string, params?:string) => {
 
     return {data, loading, success, error};
 };
-export {useSalesApi, useActiveSaleApi};
+
+const useUpdateSaleInfo = (apiPath:string, newlyMinted:number ) => {
+    const [data, setData] = useState<ISaleInfo>();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(false);
+
+    useEffect(()=> {
+        /**
+         * apiPath is relative, the routing is done by vit server (proxy config)
+         * '/api': {
+         *      target: 'http://localhost:3000',
+         *  }
+         * 
+         * this routes the "api/**" relative path to "http://localhost:3000/api/**"
+         * 
+         */
+        const getUrl = `${apiPath}`;
+        fetch(getUrl, {
+            method: 'PATCH', // POST, UPDATE, DELETE
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                newlyMinted:newlyMinted
+            })
+        })
+        .then((res)=>  res.json())
+        .then((data)=> { 
+            setData(data);
+            setLoading(false);
+            setSuccess(true);
+        })
+        .catch((error) => {
+            console.error(`Error fetching from ${getUrl}:${error}`);
+            setError(error);
+        })
+        .finally(() => {
+            setLoading(false);
+        })
+    }, [apiPath, newlyMinted]); // run when apipath changes
+
+    return {data, loading, success, error};
+
+}
+export {useSalesApi, useActiveSaleApi, useUpdateSaleInfo};
