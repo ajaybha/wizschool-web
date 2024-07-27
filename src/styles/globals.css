@@ -47,6 +47,8 @@ html {
 body {
   @apply min-h-screen-safe bg-white dark:bg-black text-black dark:text-white;
 }
+.saleinfo-div .saleinfo-span {float:left}
+.saleinfo-div .saleinfo-span-time {float: right}
 
 @layer base {
   :root {

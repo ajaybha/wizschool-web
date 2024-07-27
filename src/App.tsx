@@ -209,6 +209,23 @@ export default function Home() {
   const numberTotalStr = useMemo(() => {
     return availableToMint.toString();
   }, [availableToMint]);
+
+  // how many days/hours for sale to finish
+  const timeRemainingStr = useMemo(() => {
+    if(activeSaleInfo.success && activeSaleInfo.data?.endTime && !isSoldOut) {
+      let cd:Date = new Date();
+      const et:Date = new Date(activeSaleInfo.data?.endTime);
+      const _ms_per_day = 1000*60*60*24;
+      const utc1 = Date.UTC(cd.getFullYear(), cd.getMonth(), cd.getDate());
+      const utc2 = Date.UTC(et.getFullYear(), et.getMonth(), et.getDate());
+      const daysDiff = (utc2 - utc1)/_ms_per_day;
+      if(daysDiff > 3) {
+        return `Days left: ${daysDiff}`
+      }
+      else return `Hurry, ${daysDiff * 24} hours left`;
+    }
+  }, [activeSaleInfo.data, isSoldOut, activeSaleInfo.success]);
+
   /**
    * isLoading hook to check loading conditions
    */
@@ -318,7 +335,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="flex flex-col gap-2 xs:gap-4 lg:border lg:border-gray-400 lg:dark:border-green-800">
+            <div className="saleinfo-div flex flex-col gap-2 xs:gap-4 lg:border lg:border-gray-400 lg:dark:border-green-800">
               {
                 isLoading ? (
                 <div
@@ -331,11 +348,14 @@ export default function Home() {
                 </div>
                 ) : (
                   <p>
-                    <span className="text-lg font-bold tracking-wider text-gray-500 xs:text-xl lg:text-2xl">
+                    <span className="saleinfo-span text-lg font-bold tracking-wider text-gray-500 xs:text-xl lg:text-2xl">
                       {numberMintedStr}
                     </span>{" "}
-                    <span className="text-lg font-bold tracking-wider xs:text-xl lg:text-2xl">
+                    <span className="saleinfo-span text-lg font-bold tracking-wider xs:text-xl lg:text-2xl">
                       / {numberTotalStr} minted
+                    </span>
+                    <span className="saleinfo-span-time text-lg font-bold tracking-wider text-gray-500 xs:text-xl lg:text-2xl justify-right">
+                      {timeRemainingStr}
                     </span>
                   </p>
                 )
@@ -362,18 +382,19 @@ export default function Home() {
                 
                   <div className="text-gray-500 line-clamp-2">
                   {
-                  contractMetadata.isLoading ? (
-                    <div
-                      role="status"
-                        className="space-y-8 animate-pulse md:flex md:items-center md:space-x-8 md:space-y-0"
-                    >
-                      <div className="w-full">
-                        <div className="mb-2.5 h-2 max-w-[480px] rounded-full bg-gray-200 dark:bg-gray-700"></div>
-                        <div className="mb-2.5 h-2 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+                    contractMetadata.isLoading ? (
+                      <div
+                        role="status"
+                          className="space-y-8 animate-pulse md:flex md:items-center md:space-x-8 md:space-y-0"
+                      >
+                        <div className="w-full">
+                          <div className="mb-2.5 h-2 max-w-[480px] rounded-full bg-gray-200 dark:bg-gray-700"></div>
+                          <div className="mb-2.5 h-2 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+                        </div>
+                        <span className="sr-only">Loading...</span>
                       </div>
-                      <span className="sr-only">Loading...</span>
-                    </div>
-                  ) : (
+                    ) 
+                    : (
                     contractMetadata.data?.description
                     //<span>A magical brooms collection for the high flyers, players, explorers, scientists and other Wizards of the Wizschool and this text goes on and on and on and on and on and ond</span>
                   )}
